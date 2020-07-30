@@ -1,0 +1,28 @@
+Input:
+- label_order - Record IDs of all papers by the order in which papers were labeled
+- n_prior - Number of starting papers
+
+NB: if not all publications have been labeled, they can be added to label_order anyway by sorting the non-reviewed publications by relevancy as predicted by the model.
+
+Output:
+- ATD - Average Time to Discovery over all inclusions (% of all labeled publications)
+
+
+for label_order, n_prior in state_files:
+
+  # position of when inclusions were found
+  inclusions = where(label_order[n_prior:] == 1)
+
+  # factor to account for total number of publications to label
+  time_mult = 100 / (len(label_order) - n_prior)
+
+  # compute discovery time for every inclusion that has been labeled
+  for i_time, record_id in inclusions:
+      time_results[record_id] = time_mult * (i_time + 1)
+
+  # add to matrix with time_results for all inclusions @Raoul I'm confused what is an elegant way to paste together this matrix.
+  results["i"] = time_results
+  # average over all inclusions
+  for record_id in results:
+      if len(trained_time) > 0:
+          ATD = average(time_results)

@@ -1,0 +1,53 @@
+\documentclass[12pt]{article}
+\title{Dynamic Reseampling}
+
+\usepackage{algorithm2e}
+
+\begin{document}
+
+\begin{algorithm}[H]
+\DontPrintSemicolon
+\SetAlgoLined
+\KwResult{}
+\SetKwInOut{Input}{Input}\SetKwInOut{Output}{Output}
+\Input{read, all publications that have been labeled; a; alpha; b.}
+\Output{train, a balanced training dataset}
+\BlankLine
+
+% Set Function Names
+  \SetKwFunction{FMain}{Main}
+  \SetKwFunction{FSum}{Sample}
+  \SetKwFunction{FSub}{Sub}
+ 
+% Write Function with word ``Function''
+  \SetKwProg{Fn}{Function}{:}{}
+  \Fn{\FSample{$n$, $idx$}}{
+        n = first\;
+        idx = second\;
+        sum = first + second\;
+        \KwRet sum\;
+  }
+  \;
+
+% Write Function with word ``Def''
+  \SetKwProg{Fn}{Def}{:}{}
+  \Fn{\FSub{$first$, $second$}}{
+        a = first\;
+        b = second\;
+        sum = first - second\;
+        \KwRet sum\;
+  }
+  \;
+
+  \SetKwProg{Fn}{Function}{:}{\KwRet}
+  \Fn{\FMain}{
+        a = 5\;
+        b = 10\;
+        Sum(5, 10)\;
+        Sub(5, 10)\;
+        print Sum, Sub\;
+        \KwRet 0\;
+  }
+\end{algorithm}
+
+\end{document}
