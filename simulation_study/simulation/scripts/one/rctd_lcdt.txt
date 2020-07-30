@@ -1,0 +1,13 @@
+x
+./cart_simulate.py simdata/ace.csv --config_file simconfig/one/RCTD/rf_max_double_tfidf-ace.ini --state_file simoutput/one/RCTD/ace/results.h5 -r 15
+./cart_simulate.py simdata/nudging.csv --config_file simconfig/one/RCTD/rf_max_double_tfidf-nudging.ini --state_file simoutput/one/RCTD/nudging/results.h5 -r 15
+./cart_simulate.py simdata/ptsd.csv --config_file simconfig/one/RCTD/rf_max_double_tfidf-ptsd.ini --state_file simoutput/one/RCTD/ptsd/results.h5 -r 15
+./cart_simulate.py simdata/software.csv --config_file simconfig/one/RCTD/rf_max_double_tfidf-software.ini --state_file simoutput/one/RCTD/software/results.h5 -r 15
+./cart_simulate.py simdata/virus.csv --config_file simconfig/one/RCTD/rf_max_double_tfidf-virus.ini --state_file simoutput/one/RCTD/virus/results.h5 -r 15
+./cart_simulate.py simdata/wilson.csv --config_file simconfig/one/RCTD/rf_max_double_tfidf-wilson.ini --state_file simoutput/one/RCTD/wilson/results.h5 -r 15
+./cart_simulate.py simdata/ace.csv --config_file simconfig/one/LCTD/logistic_max_double_tfidf-ace.ini --state_file simoutput/one/LCTD/ace/results.h5 -r 15
+./cart_simulate.py simdata/nudging.csv --config_file simconfig/one/LCTD/logistic_max_double_tfidf-nudging.ini --state_file simoutput/one/LCTD/nudging/results.h5 -r 15
+./cart_simulate.py simdata/ptsd.csv --config_file simconfig/one/LCTD/logistic_max_double_tfidf-ptsd.ini --state_file simoutput/one/LCTD/ptsd/results.h5 -r 15
+./cart_simulate.py simdata/software.csv --config_file simconfig/one/LCTD/logistic_max_double_tfidf-software.ini --state_file simoutput/one/LCTD/software/results.h5 -r 15
+./cart_simulate.py simdata/virus.csv --config_file simconfig/one/LCTD/logistic_max_double_tfidf-virus.ini --state_file simoutput/one/LCTD/virus/results.h5 -r 15
+./cart_simulate.py simdata/wilson.csv --config_file simconfig/one/LCTD/logistic_max_double_tfidf-wilson.ini --state_file simoutput/one/LCTD/wilson/results.h5 -r 15

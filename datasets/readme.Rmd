@@ -1,0 +1,495 @@
+---
+title: "Preprocessing datasets"
+output: github_document
+bibliography: ../manuscript/manuscript/asreview.bib
+---
+
+This notebook processes six systematic review datasets into datasets suitable for simulating the screening process. The source code for this notebook can be found in the `readme.Rmd` file. 
+
+- __Wilson__ - is on a review on effectiveness and safety of treatments of Wilson Disease, a rare genetic disorder of copper metabolism. Dataset: [@Appenzeller-Herzog2020]. Paper: [@Appenzeller-Herzog2019]. 
+- __Ace__ -  contains publications on the efficacy of Angiotensin-converting enzyme (ACE) inhibitors, a drug treatment for heart disease Paper and dataset: [@Cohen2006]. 
+- __Virus__ -  is from a systematic review on studies that performed viral Metagenomic Next-Generation Sequencing (mNGS) in farm animals [@Kwok2020]. 
+- __Software__ - from the software engineering field, contains publications on fault prediction in source code [@Hall2012].
+- __Nudging__ dataset - [@Nagtegaal2019a] on nudging healthcare professionals [@Nagtegaal2019], stemming from the area of 
+- __PTSD__ - on studies applying latent trajectory analyses on posttraumatic stress after exposure to traumatic events [@vandeSchoot2017].
+
+Data were preprocessed from their original source into a test dataset, containing title and abstract of the publications obtained in the initial search. Candidate studies with missing abstracts and duplicate instances were removed from the data.
+
+Every dataset has 2 versions: one for hyperparameter optimization (`test_datasets`), and one for simulation (`sim_datasets`). 
+
+Every simulation dataset is a .csv file with the columns `title`, `abstract`, `label_included`, the last one indicating whether a publication was relevant or not. This is the label that is queried by the active learning model when simulating a systematic review. The reason for this sparse datasets (no keywords are included etc) is twofold. 1) This is by PRISMA guidelines the only information that should be used to identify relevant publications from a search and 2) I wanted equal information for all datasets, and for some datasets this was the only information that was available. For hyperparameter optimization I used all information accessible to arrive at better hyperparameters, with future projects in mind. 
+
+  
+```{r, include = FALSE}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+```
+
+### Preprocessing datasets
+For every datasets, 3 numbers are given: total number of publications, abstract inclusions and final inclusions. For some datasets there are discrepancies between how these numbers are reported in the publication and how they actually are in the raw dataset. Therefore, these numbers are given for how they are reported in the manuscript, how they are found in the raw data, and how they are found in the test dataset, e.g. after removing duplicates and missing abstracts. Moreover, statistics on missingness and duplicates are given. 
+
+```{r, echo = FALSE}
+datasets <- c("ace", "nudging", "ptsd", "software", "virus", "wilson")
+nd <- length(datasets)
+# create storage for statistics
+template <- data.frame(search = rep(0,4), # papers obtained in systematic search
+                       ftext = rep(0, 4), # number of abstract inclusions
+                       incl = rep(0,4), # papers included in final systematic review
+                       
+                       row.names = c("paper", # numbers reported in the publication
+                                     "raw", # numbers published on raw dataset (by author,  mostly on OSF)
+                                     "asreview", # numbers on asreview repository 
+                                     "test")) # numbers in test dataset 
+
+# statistics on duplicates and dropping in ASReview dataset
+drops <- data.frame(n = rep(0,nd), # candidates
+                    na = rep(0,nd),# number of missing abstracts
+                    narate = rep(0,nd), # percentage of missing abstracts
+                    dup = rep(0,nd),  # number of duplicate abstracts 
+                    duprate = rep(0,nd), # percentage of missing abstracts
+                    row.names = datasets)
+
+# some functions to extract statistics
+data_descr <- function(data){
+  return(c(nrow(data), # all papers obtained in the systematic search
+           ifelse(sum(data$inclusion_code > 0), sum(data$inclusion_code > 0), NA), # number of abstract inclusions
+           sum(data$included))) # papers included in systematic review
+}
+
+nostudies <- function(all, set, stage){ # number of studies
+  sapply(all, function(x) x[set, stage])
+}
+
+inclrate <- function(all, set){ # inclusion rate
+  sapply(all, function(x) round(x[set,"incl"]/x[set,"search"]*100,2))
+}
+```
+
+## Ace dataset
+```{r}
+ace <- template
+
+# information given in the paper -----------------------------------------------
+ace["paper", ] <- c(2544, NA, round(2544*0.0160)) 
+
+# raw --------------------------------------------------------------------------
+# original paper not to linked directly. cannot be retrieved? 
+# checked dataset online by cohen et al. 
+#https://dmice.ohsu.edu/cohenaa/systematic-drug-class-review-data.html
+ace["raw", ] <- c(2544, NA, 41)
+
+# asreview dataset -------------------------------------------------------------
+ace_asr <- read.csv("https://raw.github.com/asreview/systematic-review-datasets/master/datasets/Cohen_EBM/output/ACEInhibitors.csv",
+                     header=T)
+```
+
+### Create test dataset
+```{r}
+# replace empty abstracts by NA values. 
+ace_asr[ace_asr$abstract == "", "abstract"] <- NA
+# stats on missingness in this data
+drops["ace",] <- ace_asr %>%
+           summarise(n = length(abstract),
+                    na = sum(is.na(abstract)),
+                    na_rate = sum(is.na(abstract))/length(abstract)*100,
+                    dup = sum(duplicated(abstract, incomparables = NA)),
+                    dup_rate = sum(duplicated(abstract, incomparables = NA))/length(abstract)*100)
+
+ace["asreview", ] <- c(nrow(ace_asr),
+                       NA,
+                       sum(ace_asr$label_included))
+
+# drop missings and duplicates. 
+ace_test <- ace_asr %>%
+  drop_na(abstract) %>% # drop entries with missing abstracts
+  distinct(abstract, .keep_all = TRUE) # remove entries with duplicate abstracts
+
+# data on 
+ace["test", ] <- c(nrow(ace_test),
+                   NA,
+                   sum(ace_test$label_included))
+```
+
+### Some statistics 
+On missingness (# and %) and duplicates (# and %): 
+```{r, echo = FALSE}
+# missingness and duplicates in raw data on ASReview
+drops["ace",] %>% knitr::kable(format = "markdown", digits = 2)
+```
+
+On total number of publications, abstract inclusions (this information was not available for this dataset) and final inclusions. 
+```{r, echo = FALSE}
+ace %>% knitr::kable(format = "markdown")
+```
+
+## Nudging dataset 
+```{r}
+# by Rosanna Nagtegaal
+nudging <- template
+nudging["paper", ] <- c(2006, 377, 100) 
+```
+
+
+```{r eval = TRUE}
+# data is not public yet
+
+# raw --------------------------------------------------------------------------
+n_raw <- read.csv("raw/nagtegaal.csv")
+#n_rr <- read.csv2("https://dataverse.harvard.edu/api/access/datafile/:persistentId?persistentId=doi:10.7910/DVN/WMGPGZ/HY6N2S",
+                 # sep = ",")
+#n_rr <- fread("https://dataverse.harvard.edu/api/access/datafile/:persistentId?persistentId=doi:10.7910/DVN/WMGPGZ/HY6N2S",
+              #    sep = ",", encoding = "UTF-8")
+# missing statistics
+drops["nudging",] <- n_raw %>%
+          summarise(n = length(abstract),
+                    na = sum(is.na(abstract)),
+                    na_rate = sum(is.na(abstract))/length(abstract)*100,
+                    dup = sum(duplicated(abstract, incomparables = NA)),
+                    dup_rate = sum(duplicated(abstract, incomparables = NA))/length(abstract)*100)
+# asreview ---------------------------------------------------------------------
+
+# remove missing abstracts 
+nudging_test <- n_raw %>%
+  drop_na(abstract) %>% # drop entries with missing abstracts
+  filter(abstract != "", abstract != "NA") %>%
+  distinct(abstract, .keep_all = TRUE) %>% # remove entries with duplicate abstracts
+  mutate(id = X)
+
+nudging["test", ] <- data_descr(nudging_test)
+
+```
+
+### Some statistics
+On missingness (# and %) and duplicates (# and %): 
+
+```{r, echo = FALSE}
+drops["nudging",]%>% knitr::kable(format = "markdown")
+```
+On total number of publications, abstract inclusions (this information was not available for this dataset) and final inclusions. 
+```{r, echo = FALSE}
+nudging %>% knitr::kable(format = "markdown")
+```
+
+## PTSD dataset
+```{r}
+ptsd <- template 
+ptsd["paper", ] <- c(6185, 363, 38) # from flowchart 
+
+# raw --------------------------------------------------------------------------
+ptsd["raw", ] 
+
+# asreview ---------------------------------------------------------------------
+ptsd_asr <- read.csv("https://raw.github.com/asreview/systematic-review-datasets/master/datasets/Van_de_Schoot_PTSD/output/PTSD_VandeSchoot_18.csv", 
+                     header=T)
+
+ptsd["asreview", ] <- data_descr(ptsd_asr)
+
+# statistics on duplicates from asr data to test
+drops["ptsd", ] <- ptsd_asr %>%
+  summarise(n = length(abstract),
+                    na = sum(is.na(abstract)),
+                    narate = sum(is.na(abstract))/length(abstract)*100,
+                    dup = sum(duplicated(abstract, incomparables = NA)),
+                    duprate = sum(duplicated(abstract, incomparables = NA))/length(abstract)*100)
+```
+
+### Create test dataset
+Now, remove duplicate entries and empty abstracts to arrive at test set. 
+```{r}
+ptsd_test <- ptsd_asr %>%
+  drop_na(abstract) %>% # drop entries with missing abstracts
+  filter(abstract != "", abstract != "NA") %>%
+  distinct(abstract, .keep_all = TRUE)# remove entries with duplicate abstracts
+
+
+``` 
+
+There are 38 inclusions in this dataset, should be 34. 
+```{r}
+# get rid of 4 extra inclusions (see log book)
+excl <- 
+  ptsd_test %>%
+  filter(included == 1, 
+         str_detect(authors, "Sterling, M., Hendrikz, J., Kenardy, J.") |
+         str_detect(authors, "Hou") |
+         str_detect(authors, "Mason") |
+         str_detect(authors, "Pérez")) %>%
+  select(id)
+
+indices <- ptsd_test$id %in% excl
+
+# get rid of 4 papers
+ptsd_test[indices, "included"] <- 0
+```
+
+```{r}
+# finalize dataset  
+ptsd_test <- ptsd_test %>%
+  select(id, authors, title, abstract, keywords, included, inclusion_code) # select relevant columns
+
+ptsd["test", ] <- data_descr(ptsd_test)
+```
+
+### Some statistics
+On missingness (# and %) and duplicates (# and %): 
+
+```{r, echo = FALSE}
+drops["ptsd",]%>% knitr::kable(format = "markdown")
+```
+On total number of publications, abstract inclusions (this information was not available for this dataset) and final inclusions. 
+```{r, echo = FALSE}
+ptsd %>% knitr::kable(format = "markdown")
+```
+
+
+## Software dataset
+```{r}
+hall <- template
+
+# paper ------------------------------------------------------------------------
+hall["paper", ] <- c(8911, NA, 104)
+
+# raw --------------------------------------------------------------------------
+h_raw <- read.csv("https://zenodo.org/record/1162952/files/Hall.csv",
+                  header=T)
+
+hall["raw", ] <- c(length(h_raw$Document.Title),
+                   NA,
+                   sum(h_raw$label == "yes"))
+                          
+# asreview ---------------------------------------------------------------------
+hall_asr <- read.csv("https://raw.githubusercontent.com/asreview/systematic-review-datasets/master/datasets/Four%20Software%20Engineer%20Data%20Sets/output/Software_Engineering_Hall.csv",
+                     header=T)
+
+hall["asreview", ] <- data_descr(hall_asr)
+```
+
+### Creating test dataset
+```{r}
+hall_test <- hall_asr %>%
+   drop_na(abstract) %>% # drop entries with missing abstracts
+   filter(abstract != "") %>%
+   distinct(abstract, .keep_all = TRUE) # remove entries with duplicate abstracts
+
+hall_test <- hall_test %>% # add id
+  mutate(id = 1:nrow(hall_test))
+   
+hall["test", ] <- data_descr(hall_test)
+```
+
+```{r}
+drops["software", ] <- 
+  hall_asr %>%
+  summarise(n = length(abstract),
+                    na = sum(is.na(abstract)),
+                    narate = sum(is.na(abstract))/length(abstract)*100,
+                    dup = sum(duplicated(abstract, incomparables = NA)),
+                    duprate = sum(duplicated(abstract, incomparables = NA))/length(abstract)*100)
+
+```
+
+### Some statistics
+On missingness (# and %) and duplicates (# and %): 
+
+```{r, echo = FALSE}
+drops["hall",]%>% knitr::kable(format = "markdown")
+```
+
+On total number of publications, abstract inclusions (this information was not available for this dataset) and final inclusions. 
+```{r, echo = FALSE}
+hall %>% knitr::kable(format = "markdown")
+```
+
+
+## Virus dataset
+```{r}
+virus <- template
+virus["paper",] <- c(2481, 132, 120)
+v_raw <- read.csv("raw/virus.csv")
+v_raw$abstract[v_raw$abstract == ""] <- NA
+
+virus["raw", ] <- data_descr(v_raw)
+
+drops["virus", ] <- 
+  v_raw %>%
+  summarise(n = length(abstract),
+                    na = sum(is.na(abstract)),
+                    narate = sum(is.na(abstract))/length(abstract)*100,
+                    dup = sum(duplicated(abstract, incomparables = NA)),
+                    duprate = sum(duplicated(abstract, incomparables = NA))/length(abstract)*100)
+
+v_test <- v_raw %>%
+  drop_na(abstract) %>% # drop entries with missing abstracts
+   filter(abstract != "") %>%
+   distinct(abstract, .keep_all = TRUE)# remove entries with duplicate abstracts
+
+virus["test",] <- data_descr(v_test)
+```
+
+### Some statistics
+On missingness (# and %) and duplicates (# and %): 
+
+```{r, echo = FALSE}
+drops["virus",]%>% knitr::kable(format = "markdown")
+```
+
+On total number of publications, abstract inclusions (this information was not available for this dataset) and final inclusions. 
+```{r, echo = FALSE}
+virus %>% knitr::kable(format = "markdown")
+```
+
+
+## Wilson dataset
+
+```{r}
+wilson <- template
+# paper ------------------------------------------------------------------------
+wilson["paper", ] <- c(3453, 174, 26)
+
+# raw --------------------------------------------------------------------------
+# w_ftext <- read.delim("../datasets/raw/DOKU_All FT-Screening_20200116_cap.txt")
+# w_incl <- read.csv("../datasets/raw/DOKU_All Included_20200116_cap.csv")
+# w_all <- read.csv("../datasets/raw/DOKU_All TiAb-Screening_20200116_cap.csv")
+# wilson["raw", ] <- c(nrow(w_all), nrow(w_ftext), nrow(w_incl))
+wilson["raw", ] <- c(3453, 174, 26) # looked it up
+
+# asreview ---------------------------------------------------------------------
+w_asr <- read.csv("https://raw.github.com/asreview/systematic-review-datasets/master/datasets/Appenzeller-Herzog_Wilson/output/output_csv_wilson.csv", header=T)
+
+w_asr[w_asr$abstract == "", "abstract"] <- NA
+drops["wilson", ] <- w_asr %>%
+   summarise(n = length(abstract),
+                    na = sum(is.na(abstract)),
+                    narate = sum(is.na(abstract))/length(abstract)*100,
+                    dup = sum(duplicated(abstract, incomparables = NA)),
+                    duprate = sum(duplicated(abstract, incomparables = NA))/length(abstract)*100)
+# add inclusion_code label 
+w_asr$inclusion_code <- w_asr$label_abstract_screening + w_asr$label_included
+w_asr$included <- w_asr$label_included
+wilson["asreview", ] <- data_descr(w_asr)
+```
+
+```{r}
+# create test dataset
+w_test <- w_asr %>%
+  drop_na(abstract) %>% # drop entries with missing abstracts
+  distinct(abstract, .keep_all = TRUE) # remove entries with duplicate abstracts
+
+wilson["test",] <- data_descr(w_test)
+```
+
+### Some statistics
+On missingness (# and %) and duplicates (# and %): 
+
+```{r, echo = FALSE}
+drops["wilson",]%>% knitr::kable(format = "markdown")
+```
+
+On total number of publications, abstract inclusions (this information was not available for this dataset) and final inclusions. 
+```{r, echo = FALSE}
+wilson %>% knitr::kable(format = "markdown")
+```
+
+# Save descriptive statistics on all datasets
+
+```{r eval = TRUE}
+# put everything together in list. 
+all <- list(Ace = ace,
+            Nudging = nudging,
+            PTSD = ptsd,
+            Software = hall,
+            Virus = virus,
+            Wilson = wilson)
+
+# save datafile, to serve as data for descriptive table in manuscript
+saveRDS(all, file = "data_statistics/all.RDS")
+saveRDS(drops, file = "data_statistics/drops.RDS")
+```
+
+# Statistics
+All candidate papers, paper selected for full text screening, papers included in final review and inclusion rate, for the test datasets. 
+```{r, echo = FALSE, eval = TRUE, warning = FALSE}
+tibble(Dataset = names(all), 
+       # paper 
+       # `candidates_paper` = nostudies(all, "paper", "search"), 
+       # `fulltext_paper` = nostudies(all, "paper", "ftext"),
+       # `incl_paper` = nostudies(all, "paper", "incl"),
+       # `inclrate_paper` = inclrate(all, "paper"),
+       # 
+       # # raw data 
+       # `candidates_raw` = nostudies(all, "raw", "search"), 
+       # `fulltext_raw` = nostudies(all, "raw", "ftext"),
+       # `incl_raw` = nostudies(all, "raw", "incl"),
+       # `inclrate_raw` = inclrate(all, "raw"),
+       # 
+       # # asreview repository 
+       # `candidates_asr` = nostudies(all, "asreview", "search"), 
+       # `fulltext_asr` = nostudies(all, "asreview", "ftext"),
+       # `incl_asr` = nostudies(all, "asreview", "incl"),
+       # `inclrate_asr` = inclrate(all, "asreview"),
+       # 
+       # test set 
+       `candidates_test` =  nostudies(all, "test", "search"), 
+       `fulltext_test` =  nostudies(all, "test", "ftext"), 
+       `incl_test` =  nostudies(all, "test", "incl"), 
+       `inclrate_test` = inclrate(all, "test")) %>% 
+  t() %>% 
+  kable("markdown", digits = 2) 
+# %>%
+#   kable_styling(full_width = TRUE) %>%
+#   #scroll_box(width = "100%", height = "200px") %>%
+#   pack_rows("Paper", 2, 5) %>%
+#   pack_rows("Raw data", 6, 9) %>%
+#   pack_rows("ASReview data", 10, 13) %>%
+#   pack_rows("Test data set", 14, 17)  
+```
+
+Descriptives on missingness and duplicate abstracts in the raw datasets: 
+```{r, echo = FALSE}
+drops %>%
+  kable("markdown",
+        col.names = c("n", "NA", "NA rate (%)", "duplicates", "duplicate rate (%)"),
+        digits = 2) 
+
+```
+
+
+# Write all test dataset files 
+```{r, eval = FALSE}
+# ace
+write.csv(ace_test %>%  select(pubmedID, authors, title, abstract, keywords, label_included), "test_datasets/ace.csv", row.names = FALSE)
+
+# nudging (no keywords available)
+write.csv(nudging_test %>% select(id, title, abstract, included), "test_datasets/nudging.csv", row.names = FALSE)
+
+# ptsd
+write.csv(ptsd_test %>% select(id, authors, title, abstract, keywords, included), "test_datasets/ptsd.csv", row.names = FALSE)
+
+# hall (no keywords available )
+write.csv(hall_test, "test_datasets/software.csv", row.names = FALSE)
+
+# virus 
+write.csv(v_test %>% select(id, authors, title, abstract, keywords, included), "test_datasets/virus.csv", row.names = FALSE)
+
+# wilson
+write.csv(w_test %>% select(id, authors, title, abstract, keywords, included), "test_datasets/wilson.csv", row.names = FALSE)
+```
+
+# write test dataset files for simulation (removing keywords)
+```{r, eval = FALSE}
+# ace
+write.csv(ace_test %>%  select(pubmedID, title, abstract, label_included), "sim_datasets/ace.csv", row.names = FALSE)
+# nudging (no keywords available)
+write.csv(nudging_test %>% select(id, title, abstract, included), "sim_datasets/nudging.csv", row.names = FALSE)
+# ptsd
+write.csv(ptsd_test %>% select(id, title, abstract, included), "sim_datasets/ptsd.csv", row.names = FALSE)
+# hall (no keywords available )
+write.csv(hall_test, "sim_datasets/software.csv", row.names = FALSE)
+# virus 
+write.csv(v_test %>% select(id, title, abstract, included), "sim_datasets/virus.csv", row.names = FALSE)
+# wilson
+write.csv(w_test %>% select(id, title, abstract, included), "sim_datasets/wilson.csv", row.names = FALSE)
+```
+
+# References
