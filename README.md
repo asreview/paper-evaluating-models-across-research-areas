@@ -6,17 +6,16 @@ This repository provides supplementary material on the paper "__Screening priori
 - Date: 30-07-2020
 - Version 1.0.0
 - Data collection and simulation period: January - May 2020
-- Manuscript submitted on xx-xx-xxxx.
+- Manuscript submitted on 10-08-2020.
 
 This repository contains scripts and data required to reproduce the results: the systematic review datasets and their preprocessing scripts, scripts for the simulations, scripts for the processing and analysis of the results of the simulations, and scripts for producing the figures and tables.
 
 # Content
 This archive is organized as such that it follows the steps needed to reproduce the study that was carried out:
 
-1. `datasets` -  collection and preprocessing of six systematic review datasets.
+1. `datasets` -  collection and preprocessing of six systematic review datasets, production of Table 1.
 2. `simulation_study` - simulating seven active learning models on the systematic review datasets.
-3. `results` - the simulation study output was processed and analyzed to arrive at the results discussed in the manuscript.
-4. `manuscript` - a set of Rmarkdown files that contain the written text in the manuscript and references.
+3. `results` - the simulation study output was processed and analyzed to arrive at the results discussed in the manuscript (Figure 1 and 2, Table 2, 3, and 4).
 
 Please follow the order above if you want to reproduce this study. Every subdirectory contains its own `readme` that will guide you through the process of that particular step.
 
