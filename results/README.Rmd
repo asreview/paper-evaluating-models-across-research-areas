@@ -11,7 +11,7 @@ library(tidyverse)
 library(knitr)
 library(flextable)
 library(officer)
-
+library(xtable)
 set.seed(42)
 ```
 
@@ -59,7 +59,7 @@ data <- readRDS("../simulation_study/R/00_datasets.RDS")
 models <-c("BCTD", "LCDD", "LCTD", "RCDD", "RCTD", "SCDD", "SCTD")
 names(models) <- c("NB + TF-IDF", "LR + D2V", "LR + TF-IDF", "RF + D2V", "RF + TF-IDF", "SVM + D2V", "SVM + TF-IDF" )
 
-# function that reads results for all 15 runs
+# function that reads results for all 15 runs at once (all.json files)
 read_results <- function(m){
    files = list.files(paste0("one_seed/statistics/", m), pattern = "all.json", recursive = TRUE)
   # names of the files are the data
@@ -80,7 +80,7 @@ read_results <- function(m){
   return(dat)
 }
 
-# function for extracting all separate runs 
+# function for extracting all separate runs (results_x.json files)
 read_trials <- function(m){
    files <- list.files(paste0("one_seed/statistics/", m), pattern = "results_", recursive = TRUE, full.names=TRUE)
   # names of the files are the data
@@ -103,20 +103,6 @@ read_trials <- function(m){
 }
 ```
 
-The ATD values need to be adjusted for prior inclusions and exclusions as the computation does not take into account that prior to the active learning cycle, already 1 inclusion and 1 exclusion have been labelled 'for free'. 
-```{r}
-# ATD needs to be adjusted for 1 prior inclusion and 1 prior exclusion! 
-# compute adjusted ATD to make it equal to the area above the curve
-datastats <- readRDS("datastats.RDS") %>%
-  select(Dataset, candidates_test, incl_test) %>%
-  # account for 1 prior exclusion and 1 prior inclusion
-  mutate(n_1 = incl_test, n_excl = candidates_test-n_1, n_1_noprior = incl_test-1, candidates_noprior = candidates_test -1) %>%
-  mutate(ratio = (n_1_noprior/n_1)/(candidates_noprior/candidates_test))
-
-datastats$dataset <- c("ace", "nudging", "ptsd", "software", "virus", "wilson")
-atdratio <- datastats %>%
-  select(dataset, ratio)
-```
 
 ## Load results for 15 separate trials
 ```{r}
@@ -128,11 +114,6 @@ runs <- do.call("rbind", runs)
 
 # convert loss (ttd) to percentage 
 runs$loss <- runs$loss*100
-# adjust loss to N_1 : N_1-1 (to the prior inclusions)
-runs <- left_join(runs, atdratio, by = "dataset")
-runs <- runs %>%
-  mutate(loss = loss/ratio) %>%
-  select(-ratio)
 
 # save results file 
 saveRDS(runs, "output/runs.RDS")
@@ -140,7 +121,7 @@ saveRDS(runs, "output/runs.RDS")
 
 Compute standarad deviation from the 15 separate trials.
 ```{r}
-# compute standard deviation (bootstrapped)
+# compute standard deviation 
 sdruns <- 
   runs %>%
   select(dataset, model, wss.95, rrf.10, loss) %>% 
@@ -164,12 +145,6 @@ results <- do.call("rbind", results)
 
 # convert loss (ttd) to percentage 
 results$loss <- results$loss*100
-# adjust loss to N_1 : N_1-1
-results <- left_join(results, atdratio, by = "dataset")
-
-results <- results %>%
-  mutate(loss = loss/ratio) %>%
-  select(-ratio)
 
 # save results file 
 saveRDS(results, "output/results.RDS")
@@ -202,6 +177,92 @@ tabres %>%
 saveRDS(stabres, "output/tabresults.RDS")
 
 knitr::kable(stabres, format = "markdown", digits = 1)
+```
+
+
+Create table for manuscript
+```{r}
+nicetab <- function(results, statistic){
+  test <- results %>% select(model, dataset, all_of(statistic))
+  sdname <- paste0("sd", statistic)
+
+  test <- left_join(test, sdruns[,c("model", "dataset", sdname)], by = c("model", "dataset"))
+  
+  test[,statistic] <- sprintf("%.1f", round(test[,statistic],1)) 
+  test[,sdname] <-  sprintf("%.2f", round(test[,sdname],2)) 
+  test$tab <- with(test, paste0(test[,statistic], " (", test[,sdname], ")"))
+  
+  tab <- test %>%
+      select(model, dataset, tab) %>%
+      pivot_wider(names_from = dataset, values_from = c("tab"))
+  
+  tab <- tab %>%
+    select(model, nudging, ptsd, software, ace, virus, wilson)
+  names(tab) <- c("", "Nudging", "PTSD", "Software", "ACE", "Virus", "Wilson")
+  return(tab)
+}
+```
+
+# ATD table
+
+```{r, eval = TRUE}
+tabatd <- nicetab(results, "loss") 
+tabatd <- tabatd[c(7, 1, 5, 3, 6, 4, 2),]
+# add range rows 
+mad <- results %>% group_by(dataset) %>% summarise(median = sprintf("%.1f", round(median(loss), 1)), mad = sprintf("%.2f", round(mad(loss), 2)))
+
+mad <- with(mad, paste0(median, " (", mad, ")"))
+
+tabatd <- rbind(tabatd, (c("median (MAD)", mad[c(2:4, 1, 5,6)])))
+
+saveRDS(tabatd, file = "tables/tab2_atd.RDS")
+
+# print(xtable(tabatd, align = c("r", "r", rep("c", 6))), 
+#       include.rownames=FALSE, comment = FALSE, booktabs = TRUE, hline.after = c(0,7))
+```
+
+# WSS@95 table 
+
+```{r, eval = TRUE}
+tabwss95 <- nicetab(results, "wss.95") 
+tabwss95 <- tabwss95[c(7, 1, 5, 3, 6, 4, 2),]
+# add range rows 
+mad <- results %>% group_by(dataset) %>% summarise(median = sprintf("%.1f", round(median(wss.95), 1)), 
+                                                   mad = sprintf("%.2f", round(mad(wss.95), 2)))
+# insert mad 
+mad <- with(mad, paste0(median, " (", mad, ")"))
+
+tabwss95 <- rbind(tabwss95, (c("median (MAD)", mad[c(2:4, 1, 5,6)])))
+# insert N per dataset 
+saveRDS(tabwss95, file = "tables/tab3_wss95.RDS")
+
+print(xtable(tabwss95, align = c("r", "r", rep("c", 6))), 
+      include.rownames=FALSE, comment = FALSE, booktabs = TRUE, hline.after = c(0,7))
+
+
+  # kable(format = "latex") %>%
+  # kableExtra()
+```
+
+# RRF@10 table
+```{r, eval = TRUE}
+tabrrf10 <- nicetab(results, "rrf.10") 
+
+tabrrf10 <- tabrrf10[c(7, 1, 5, 3, 6, 4, 2),]
+# add range rows 
+mad <- results %>% group_by(dataset) %>% summarise(median = sprintf("%.1f", round(median(rrf.10), 1)), mad = sprintf("%.2f", round(mad(rrf.10), 2)))
+
+mad <- with(mad, paste0(median, " (", mad, ")"))
+
+
+tabrrf10 <- rbind(tabrrf10, (c("median (MAD)", mad[c(2:4, 1, 5,6)])))
+saveRDS(tabrrf10, file = "tables/tab4_rrf10.RDS")
+
+print(xtable(tabrrf10, align = c("r", "r", rep("c", 6))), 
+      include.rownames=FALSE, comment = FALSE, booktabs = TRUE, hline.after = c(0,7))
+
+
+
 ```
 
 # References

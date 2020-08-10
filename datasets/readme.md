@@ -8,7 +8,7 @@ notebook can be found in the `readme.Rmd` file.
   - **Wilson** - is on a review on effectiveness and safety of
     treatments of Wilson Disease, a rare genetic disorder of copper
     metabolism. Dataset: (Appenzeller-Herzog 2020). Paper:
-    (Appenzeller‐Herzog et al. 2019).
+    (Appenzeller-Herzog et al. 2019).
   - **Ace** - contains publications on the efficacy of
     Angiotensin-converting enzyme (ACE) inhibitors, a drug treatment for
     heart disease Paper and dataset: (Cohen et al. 2006).
@@ -503,6 +503,62 @@ write.csv(v_test %>% select(id, title, abstract, included), "sim_datasets/virus.
 write.csv(w_test %>% select(id, title, abstract, included), "sim_datasets/wilson.csv", row.names = FALSE)
 ```
 
+# Table 1 in manuscript
+
+``` r
+nostudies <- function(all, set, stage){
+  sapply(all, function(x) x[set, stage])
+}
+inclrate <- function(all, set){
+  sapply(all, function(x) round(x[set,"incl"]/x[set,"search"]*100,2))
+}
+
+datastats <- 
+  tibble(dataset = names(all), 
+       #Citation = NA, # maybe add footnote citation with kableExtra i.o. this.
+       # paper 
+       `candidates_paper` = nostudies(all, "paper", "search"), 
+       #`fulltext_paper` = nostudies(all, "paper", "ftext"),
+       `incl_paper` = nostudies(all, "paper", "incl"),
+       `inclrate_paper` = inclrate(all, "paper"),
+       # test set 
+       `candidates_test` =  nostudies(all, "test", "search"), 
+       #`fulltext_test` =  nostudies(all, "test", "ftext"), 
+       `incl_test` =  nostudies(all, "test", "incl"), 
+       `inclrate_test` = inclrate(all, "test")
+       ) 
+
+
+datastats <- datastats %>%
+  select(dataset, candidates_test, incl_test, inclrate_test) 
+colnames(datastats) <- c("Dataset", rep(c("Candidate publications", 
+                                       #"Studies selected for fulltext screening", 
+                                       "Relevant publications", 
+                                       "Proportion relevant (%)"),1))
+datastats <- datastats[c(2,3,4,1,5,6), ]
+datastats[datastats == "Ace"] <- "ACE"
+
+print(xtable(datastats, digits = c(0,0,0,0,1)),
+      include.rownames=FALSE, comment = FALSE, booktabs = TRUE,
+      format.args = list(big.mark = ",", decimal.mark = "."))
+```
+
+    ## \begin{table}[ht]
+    ## \centering
+    ## \begin{tabular}{lrrr}
+    ##   \toprule
+    ## Dataset & Candidate publications & Relevant publications & Proportion relevant (\%) \\ 
+    ##   \midrule
+    ## Nudging & 1,847 & 100 & 5.4 \\ 
+    ##   PTSD & 5,031 & 38 & 0.8 \\ 
+    ##   Software & 8,896 & 104 & 1.2 \\ 
+    ##   ACE & 2,235 & 41 & 1.8 \\ 
+    ##   Virus & 2,304 & 114 & 5.0 \\ 
+    ##   Wilson & 2,333 & 23 & 1.0 \\ 
+    ##    \bottomrule
+    ## \end{tabular}
+    ## \end{table}
+
 # References
 
 <div id="refs" class="references hanging-indent">
@@ -511,14 +567,14 @@ write.csv(w_test %>% select(id, title, abstract, included), "sim_datasets/wilson
 
 Appenzeller-Herzog, Christian. 2020. “Data from Comparative
 Effectiveness of Common Therapies for Wilson Disease: A Systematic
-Review and Meta‐analysis of Controlled Studies.” Zenodo.
+Review and Meta-Analysis of Controlled Studies.” Zenodo.
 <https://doi.org/10.5281/zenodo.3625931>.
 
 </div>
 
 <div id="ref-Appenzeller-Herzog2019">
 
-Appenzeller‐Herzog, Christian, Tim Mathes, Marlies L. S. Heeres, Karl
+Appenzeller-Herzog, Christian, Tim Mathes, Marlies L. S. Heeres, Karl
 Heinz Weiss, Roderick H. J. Houwen, and Hannah Ewald. 2019. “Comparative
 Effectiveness of Common Therapies for Wilson Disease: A Systematic
 Review and Meta-Analysis of Controlled Studies.” *Liver Int.* 39 (11):
