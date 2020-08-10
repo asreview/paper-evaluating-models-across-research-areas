@@ -1,5 +1,5 @@
-# Screening prioritization in systematic reviews by employing active learning - a simulation study
-This repository provides supplementary material on the paper "__Screening prioritization in systematic reviews by employing active learning - a simulation study__ ".
+# Active learning for screening prioritization in systematic reviews - a simulation study
+This repository provides supplementary material on the paper _Active learning for screening prioritization in systematic reviews - a simulation study_.
 
 - Authors: Gerbrich Ferdinands, Raoul Schram, Jonathan de Bruin, Ayoub Bagheri, Daniel Oberski, Lars Tummers, Rens van de Schoot
 - Maintainer: Gerbrich Ferdinands
