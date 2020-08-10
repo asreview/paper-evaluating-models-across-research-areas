@@ -1,0 +1,7 @@
+x
+./cart_simulate.py simdata/ace.csv --config_file simconfig/one/BCTD/nb_max_double_tfidf-ace.ini --state_file simoutput/one/BCTD/ace/results.h5 -r 15
+./cart_simulate.py simdata/nudging.csv --config_file simconfig/one/BCTD/nb_max_double_tfidf-nudging.ini --state_file simoutput/one/BCTD/nudging/results.h5 -r 15
+./cart_simulate.py simdata/ptsd.csv --config_file simconfig/one/BCTD/nb_max_double_tfidf-ptsd.ini --state_file simoutput/one/BCTD/ptsd/results.h5 -r 15
+./cart_simulate.py simdata/software.csv --config_file simconfig/one/BCTD/nb_max_double_tfidf-software.ini --state_file simoutput/one/BCTD/software/results.h5 -r 15
+./cart_simulate.py simdata/virus.csv --config_file simconfig/one/BCTD/nb_max_double_tfidf-virus.ini --state_file simoutput/one/BCTD/virus/results.h5 -r 15
+./cart_simulate.py simdata/wilson.csv --config_file simconfig/one/BCTD/nb_max_double_tfidf-wilson.ini --state_file simoutput/one/BCTD/wilson/results.h5 -r 15

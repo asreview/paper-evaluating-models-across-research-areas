@@ -1,0 +1,7 @@
+x
+./cart_simulate.py simdata/ace.csv --config_file simconfig/one/RCDD/rf_max_double_doc2vec-ace.ini --state_file simoutput/one/RCDD/ace/results.h5 -r 15
+./cart_simulate.py simdata/nudging.csv --config_file simconfig/one/RCDD/rf_max_double_doc2vec-nudging.ini --state_file simoutput/one/RCDD/nudging/results.h5 -r 15
+./cart_simulate.py simdata/ptsd.csv --config_file simconfig/one/RCDD/rf_max_double_doc2vec-ptsd.ini --state_file simoutput/one/RCDD/ptsd/results.h5 -r 15
+./cart_simulate.py simdata/software.csv --config_file simconfig/one/RCDD/rf_max_double_doc2vec-software.ini --state_file simoutput/one/RCDD/software/results.h5 -r 15
+./cart_simulate.py simdata/virus.csv --config_file simconfig/one/RCDD/rf_max_double_doc2vec-virus.ini --state_file simoutput/one/RCDD/virus/results.h5 -r 15
+./cart_simulate.py simdata/wilson.csv --config_file simconfig/one/RCDD/rf_max_double_doc2vec-wilson.ini --state_file simoutput/one/RCDD/wilson/results.h5 -r 15

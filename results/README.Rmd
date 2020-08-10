@@ -1,0 +1,268 @@
+---
+title: "Processing simulation output"
+output: github_document
+bibliography: ../manuscript/manuscript/asreview.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rjson)
+library(tidyverse)
+library(knitr)
+library(flextable)
+library(officer)
+library(xtable)
+set.seed(42)
+```
+
+This directory stores all files used to extract figures and statistics from the simulation study output.
+The directory contains the following:
+
+- `extract_plots.ipynb`, a jupyter notebook producing recall curves from the simulation output (Figure 1 and 2 in the manuscript)
+- `extract_results.ipynb`, a jupyter notebook extracting `.json` files containing statistics from the `.h5` simulation output (WSS, RRF, ATD in table 2, 3, and 4 in the manuscript)
+- `one_seed`, containing all plots and `.json` statistics files produced by the two jupyter notebooks above. The plots are used in the manuscript, the data are further processed by this readme into tables before they are manuscript-ready.
+- `README.Rmd` containing R-code to transform the `.json` files into readable tables for the manuscript.
+- `output` contains the abovementioned tables, stored as `.RDS` files.  
+- the `datastats.RDS` is used in the analyses to compute adjusted ATD values (see code below)
+
+# Requirements
+Extracing data from the simulation output requires having several packages installed, like ASReview version 0.9.3 [@ASReview2020]. All these requirements are listed in the `requirements.txt` file. If you've already installed this file in the `simulation_study` step, please skip this. If not, you can run the following in your terminal to install all requirements: 
+
+```{bash, eval = FALSE}
+pip install -r ../simulation_study/requirements.txt
+```
+
+Additionally, to create the plots and statistics in the manuscript you will need to install a specific branch of the asreview visualization package. Run the following in your terminal: 
+
+```{bash, eval = FALSE}
+# clone visualization package from GitHub
+git clone https://github.com/GerbrichFerdinands/asreview-thesis-visualization.git
+```
+
+And then, within the newly created directory, the following:
+
+```{bash, eval = FALSE}
+# install visualization package 
+pip install . 
+```
+
+# Reproduce data extraction
+To reproduce the results, follow the steps below. If you do not want to download the raw simulation output, start at step 3:
+
+1. Run all code in the `extract_plots.ipynb` notebook to create all plots. This requires having the raw simulation data, to be found on the OSF (https://osf.io/7mr2g/ and https://osf.io/ag2xp/). Note that you will need to adjust the paths to where you've stored the simulation output on your local computer. Also, note that creating figures can take quite some time, depending on your computer. Mine took from 30 minutes to 5 hours per figure The final figures can be found in the `one_seed/plots` directory. 
+2. Run all code in the `extract_results.ipynb` to extract the metrics WSS, RRF and ATD from the raw simulation data. Note that you will need to adjust the paths to where you've stored the simulation output on your local computer. Also, note that extracting all results will take quite some time, depending on your computer. Mine took 48 hours. The results are stored in the `one_seed/plots` directory. 
+3. Follow the preprocessing steps in the `README.Rmd` files to create tables for in the manuscript, stored in the `output` directory. 
+
+## Define functions for reading simulation output 
+```{r}
+data <- readRDS("../simulation_study/R/00_datasets.RDS")
+models <-c("BCTD", "LCDD", "LCTD", "RCDD", "RCTD", "SCDD", "SCTD")
+names(models) <- c("NB + TF-IDF", "LR + D2V", "LR + TF-IDF", "RF + D2V", "RF + TF-IDF", "SVM + D2V", "SVM + TF-IDF" )
+
+# function that reads results for all 15 runs at once (all.json files)
+read_results <- function(m){
+   files = list.files(paste0("one_seed/statistics/", m), pattern = "all.json", recursive = TRUE)
+  # names of the files are the data
+  names(files) <- str_split(files, "/", simplify = TRUE)[,1]
+  # read data
+  dat <- lapply(files, function(x) fromJSON(file = paste0("one_seed/statistics/", m, "/", x)))
+  
+  # extract wss, rrf, and loss
+  dat <- map(dat, `[`, c("wss", "rrf", "loss"))
+
+  # transorm into dataframe
+  dat <- map_dfr(dat, ~ as.data.frame(.x), .id = "dataset")
+  
+  # add model name
+  dat <- dat %>% 
+    mutate(model = names(models[models == m]))
+
+  return(dat)
+}
+
+# function for extracting all separate runs (results_x.json files)
+read_trials <- function(m){
+   files <- list.files(paste0("one_seed/statistics/", m), pattern = "results_", recursive = TRUE, full.names=TRUE)
+  # names of the files are the data
+  names(files) <- str_split(files, "/", simplify = TRUE)[,4]
+  
+  # read data
+  dat <- lapply(files, function(x) fromJSON(file = x))
+  
+  # extract wss, rrf, and loss
+  dat <- map(dat, `[`, c("wss", "rrf", "loss"))
+
+  # transorm into dataframe
+  dat <- map_dfr(dat, ~ as.data.frame(.x), .id = "dataset")
+  
+  # add model name
+  dat <- dat %>% 
+    mutate(model = names(models[models == m]))
+
+  return(dat)
+}
+```
+
+
+## Load results for 15 separate trials
+```{r}
+# read all 15 trials separately
+runs <- lapply(models, FUN = read_trials)
+
+# all in one dataframe
+runs <- do.call("rbind", runs)
+
+# convert loss (ttd) to percentage 
+runs$loss <- runs$loss*100
+
+# save results file 
+saveRDS(runs, "output/runs.RDS")
+```
+
+Compute standarad deviation from the 15 separate trials.
+```{r}
+# compute standard deviation 
+sdruns <- 
+  runs %>%
+  select(dataset, model, wss.95, rrf.10, loss) %>% 
+  group_by(model, dataset) %>%
+  summarise(sdwss.95 = sd(wss.95),
+            sdrrf.10 = sd(rrf.10),
+            sdloss = sd(loss))
+
+saveRDS(sdruns, "output/sdruns.RDS")
+
+```
+
+## Load results as means over all 15 trials  
+```{r}
+# extract results for all models
+# list for models separately
+results <- lapply(models, read_results)
+
+# all in one dataframe
+results <- do.call("rbind", results)
+
+# convert loss (ttd) to percentage 
+results$loss <- results$loss*100
+
+# save results file 
+saveRDS(results, "output/results.RDS")
+```
+
+Create table for manuscript (all means over 15 runs)
+```{r, echo = FALSE, results = "asis"}
+tabres <- 
+  results %>%
+  pivot_wider(names_from = dataset, values_from = c("wss.95", "wss.99", "wss.100", "rrf.5", "rrf.10", "rrf.20", "loss"))
+
+# table of mean statistics over all runs 
+stabres <- 
+tabres %>%
+  # select statistics
+  select(model,
+         starts_with("wss.95"),
+         starts_with("rrf.10"), 
+         starts_with("loss")) %>%
+  # reorder datasets
+  select(model,
+         ends_with("nudging"),
+         ends_with("ptsd"),
+         ends_with("software"),
+         ends_with("ace"),
+         ends_with("virus"),
+         ends_with("wilson")
+         )
+
+saveRDS(stabres, "output/tabresults.RDS")
+
+knitr::kable(stabres, format = "markdown", digits = 1)
+```
+
+
+Create table for manuscript
+```{r}
+nicetab <- function(results, statistic){
+  test <- results %>% select(model, dataset, all_of(statistic))
+  sdname <- paste0("sd", statistic)
+
+  test <- left_join(test, sdruns[,c("model", "dataset", sdname)], by = c("model", "dataset"))
+  
+  test[,statistic] <- sprintf("%.1f", round(test[,statistic],1)) 
+  test[,sdname] <-  sprintf("%.2f", round(test[,sdname],2)) 
+  test$tab <- with(test, paste0(test[,statistic], " (", test[,sdname], ")"))
+  
+  tab <- test %>%
+      select(model, dataset, tab) %>%
+      pivot_wider(names_from = dataset, values_from = c("tab"))
+  
+  tab <- tab %>%
+    select(model, nudging, ptsd, software, ace, virus, wilson)
+  names(tab) <- c("", "Nudging", "PTSD", "Software", "ACE", "Virus", "Wilson")
+  return(tab)
+}
+```
+
+# ATD table
+
+```{r, eval = TRUE}
+tabatd <- nicetab(results, "loss") 
+tabatd <- tabatd[c(7, 1, 5, 3, 6, 4, 2),]
+# add range rows 
+mad <- results %>% group_by(dataset) %>% summarise(median = sprintf("%.1f", round(median(loss), 1)), mad = sprintf("%.2f", round(mad(loss), 2)))
+
+mad <- with(mad, paste0(median, " (", mad, ")"))
+
+tabatd <- rbind(tabatd, (c("median (MAD)", mad[c(2:4, 1, 5,6)])))
+
+saveRDS(tabatd, file = "tables/tab2_atd.RDS")
+
+# print(xtable(tabatd, align = c("r", "r", rep("c", 6))), 
+#       include.rownames=FALSE, comment = FALSE, booktabs = TRUE, hline.after = c(0,7))
+```
+
+# WSS@95 table 
+
+```{r, eval = TRUE}
+tabwss95 <- nicetab(results, "wss.95") 
+tabwss95 <- tabwss95[c(7, 1, 5, 3, 6, 4, 2),]
+# add range rows 
+mad <- results %>% group_by(dataset) %>% summarise(median = sprintf("%.1f", round(median(wss.95), 1)), 
+                                                   mad = sprintf("%.2f", round(mad(wss.95), 2)))
+# insert mad 
+mad <- with(mad, paste0(median, " (", mad, ")"))
+
+tabwss95 <- rbind(tabwss95, (c("median (MAD)", mad[c(2:4, 1, 5,6)])))
+# insert N per dataset 
+saveRDS(tabwss95, file = "tables/tab3_wss95.RDS")
+
+print(xtable(tabwss95, align = c("r", "r", rep("c", 6))), 
+      include.rownames=FALSE, comment = FALSE, booktabs = TRUE, hline.after = c(0,7))
+
+
+  # kable(format = "latex") %>%
+  # kableExtra()
+```
+
+# RRF@10 table
+```{r, eval = TRUE}
+tabrrf10 <- nicetab(results, "rrf.10") 
+
+tabrrf10 <- tabrrf10[c(7, 1, 5, 3, 6, 4, 2),]
+# add range rows 
+mad <- results %>% group_by(dataset) %>% summarise(median = sprintf("%.1f", round(median(rrf.10), 1)), mad = sprintf("%.2f", round(mad(rrf.10), 2)))
+
+mad <- with(mad, paste0(median, " (", mad, ")"))
+
+
+tabrrf10 <- rbind(tabrrf10, (c("median (MAD)", mad[c(2:4, 1, 5,6)])))
+saveRDS(tabrrf10, file = "tables/tab4_rrf10.RDS")
+
+print(xtable(tabrrf10, align = c("r", "r", rep("c", 6))), 
+      include.rownames=FALSE, comment = FALSE, booktabs = TRUE, hline.after = c(0,7))
+
+
+
+```
+
+# References
