@@ -150,7 +150,64 @@ results$loss <- results$loss*100
 saveRDS(results, "output/results.RDS")
 ```
 
+Create forest plots for manuscript
+```{r, echo = FALSE, results = "asis"}
+
+lower_ci <- function(mean, se, n, conf_level = 0.95){
+  lower_ci <- mean - qt(1 - ((1 - conf_level) / 2), n - 1) * se
+}
+upper_ci <- function(mean, se, n, conf_level = 0.95){
+  upper_ci <- mean + qt(1 - ((1 - conf_level) / 2), n - 1) * se
+}
+
+
+
+order = c("Nudging", "PTSD", "Software", "ACE", "Virus", "Wilson")
+# mutate(name = fct_relevel(name, 
+#             "north", "north-east", "east", 
+#             "south-east", "south", "south-west", 
+#             "west", "north-west"))
+
+errorbar_results <- results %>%
+  mutate(dataset = stringr::str_to_title(dataset)) 
+
+errorbar_results[errorbar_results["dataset"]=="Ace", "dataset"] <- "ACE"
+errorbar_results[errorbar_results["dataset"]=="Ptsd", "dataset"] <- "PTSD"
+
+errorbar_results <- errorbar_results %>%
+  mutate(dataset = fct_relevel(factor(dataset), "Nudging", "PTSD", "Software", "ACE", "Virus", "Wilson")) %>%
+  select(model, dataset, wss.95, loss, rrf.10) %>%
+  group_by(dataset) 
+
+base_data_wss <- errorbar_results %>%
+  summarise(smean = mean(wss.95, na.rm=TRUE),
+            sd = sd(wss.95, na.rm=TRUE),
+            count = n()) %>%
+  mutate(se = sd/sqrt(count),
+         lower = lower_ci(smean, se, count),
+         upper = upper_ci(smean, se, count))
+
+base_data_atd <- errorbar_results %>%
+  summarise(smean = mean(loss, na.rm=TRUE),
+            sd = sd(loss, na.rm=TRUE),
+            count = n()) %>%
+  mutate(se = sd/sqrt(count),
+         lower = lower_ci(smean, se, count),
+         upper = upper_ci(smean, se, count))
+
+base_data_rrf <- errorbar_results %>%
+  summarise(smean = mean(rrf.10, na.rm=TRUE),
+            sd = sd(rrf.10, na.rm=TRUE),
+            count = n()) %>%
+  mutate(se = sd/sqrt(count),
+         lower = lower_ci(smean, se, count),
+         upper = upper_ci(smean, se, count))
+
+```
+
+
 Create table for manuscript (all means over 15 runs)
+
 ```{r, echo = FALSE, results = "asis"}
 tabres <- 
   results %>%
@@ -182,6 +239,8 @@ knitr::kable(stabres, format = "markdown", digits = 1)
 
 Create table for manuscript
 ```{r}
+
+
 nicetab <- function(results, statistic){
   test <- results %>% select(model, dataset, all_of(statistic))
   sdname <- paste0("sd", statistic)
@@ -221,6 +280,41 @@ saveRDS(tabatd, file = "tables/tab2_atd.RDS")
 #       include.rownames=FALSE, comment = FALSE, booktabs = TRUE, hline.after = c(0,7))
 ```
 
+```{r}
+
+# titles  (max 15) 
+# ATD values for all datasets, on average across seven models with a 95% confidence interval. 
+# legends (max 300)
+
+
+# title alles plot: 
+# Performance for all datasets, on average across seven models with a 95% confidence interval. 
+# Legend: 
+# Performance is expressed by three different metrics: ATD, WSS@95, and RRF@10. All metrics are measured on a scale from 0 to 100. For the ATD holds that the lower the value, the better the performance. For the WSS and RRF holds that the higher the value, the better the perfoormance. 
+
+# Figure titles (max 15 words) and legends (max 300 words) should be provided in the main manuscript, not in the graphic file.
+atd_plot <- ggplot(base_data_atd, aes(x=dataset, y = smean)) +
+  geom_point(aes(x=dataset, y=smean), size = .5) +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width = .25) +
+  labs(x = "Dataset", y = "Average Time to Discovery") +
+  scale_y_continuous(breaks = seq(0,100,10), limits=c(0,100)) +
+  coord_flip() +
+  theme_bw() +
+  theme(
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank(),
+    # explicitly set the horizontal lines (or they will disappear too)
+    panel.grid.major.x = element_line( size=.05, color="black" )
+    ) 
+
+atd_plot
+
+ggsave("figures/atd_values.png", atd_plot)
+
+```
+
 # WSS@95 table 
 
 ```{r, eval = TRUE}
@@ -238,10 +332,46 @@ saveRDS(tabwss95, file = "tables/tab3_wss95.RDS")
 
 print(xtable(tabwss95, align = c("r", "r", rep("c", 6))), 
       include.rownames=FALSE, comment = FALSE, booktabs = TRUE, hline.after = c(0,7))
+```
+
+```{r}
+
+plottab <- function(results, statistic){
+  test <- results %>% select(model, dataset, all_of(statistic))
+  sdname <- paste0("sd", statistic)
+  test <- left_join(test, sdruns[,c("model", "dataset", sdname)], by = c("model", "dataset"))
+  #tab <- tab %>%
+    #select(model, nudging, ptsd, software, ace, virus, wilson)
+  # names(tab) <- c("", "Nudging", "PTSD", "Software", "ACE", "Virus", "Wilson")
+
+  return(test)
+}
+
+mad <- results %>% group_by(dataset) %>% summarise(median = sprintf("%.1f", round(median(wss.95), 1)), 
+                                                   mad = sprintf("%.2f", round(mad(wss.95), 2)))
 
 
-  # kable(format = "latex") %>%
-  # kableExtra()
+wss_plot <- ggplot(base_data_wss, aes(x=dataset, y = smean)) +
+  geom_point(aes(x=dataset, y=smean), size = .5) +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width = .25) +
+  labs(x = "Dataset", y = "WSS@95") +
+  scale_y_continuous(breaks = seq(0,100,10), limits=c(0,100)) +
+  coord_flip() +
+  theme_bw() +
+  theme(
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank(),
+    # explicitly set the horizontal lines (or they will disappear too)
+    panel.grid.major.x = element_line( size=.05, color="black" )
+    ) 
+
+wss_plot
+
+ggsave("figures/wss_values.png", wss_plot)
+
+# of met mediaan?? 
 ```
 
 # RRF@10 table
@@ -264,5 +394,86 @@ print(xtable(tabrrf10, align = c("r", "r", rep("c", 6))),
 
 
 ```
+
+```{r}
+# base_data <- results %>%
+#   select(model, dataset, rrf.10) %>%
+#   group_by(dataset) %>%
+#   summarise(smean = mean(rrf.10, na.rm=TRUE),
+#             sd = sd(rrf.10, na.rm=TRUE),
+#             count = n()) %>%
+#   mutate(se = sd/sqrt(count),
+#          lower = lower_ci(smean, se, count),
+#          upper = upper_ci(smean, se, count))
+
+
+rrf_plot <- ggplot(base_data_rrf, aes(x=dataset, y = smean)) +
+  geom_point(aes(x=dataset, y=smean), size = .5) +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width = .25) +
+  labs(x = "Dataset", y = "RRF@10") +
+  scale_y_continuous(breaks = seq(0,100,10), limits=c(0,100)) +
+  coord_flip() +
+  theme_bw() +
+  theme(
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank(),
+    # explicitly set the horizontal lines (or they will disappear too)
+    panel.grid.major.x = element_line( size=.05, color="black" )
+    ) 
+
+rrf_plot
+
+ggsave("figures/rrf_values.png", rrf_plot)
+```
+
+```{r}
+# probeersel: alle metrics in 1 plot, met verschillende kleuren 
+# lower, upper, smean, dataset 
+
+plot_data <- bind_rows(list(ATD = base_data_atd, 'RRF@10'=base_data_rrf, 'WSS@95'=base_data_wss), .id = "Statistic")
+
+
+full_plot <- ggplot(plot_data, aes(x=dataset, y = smean, color = Statistic)) +
+  geom_point(aes(x=dataset, y=smean), size = .5) +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width = .25) +
+  labs(x = "Dataset", y = "Performance") +
+  scale_y_continuous(breaks = seq(0,100,10), limits=c(0,100)) +
+  coord_flip() +
+  theme_bw() +
+  theme(
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank(),
+    # explicitly set the horizontal lines (or they will disappear too)
+    panel.grid.major.x = element_line( size=.05, color="black" )
+    ) 
+full_plot
+
+full_plot <-ggplot(plot_data, aes(x=dataset, y=smean #color = dataset
+                                  )) +
+  geom_point(aes(x=dataset, y=smean), size = .5) +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width = .25) +
+  labs(x = "Dataset", y = "Performance") +
+  scale_y_continuous(breaks = seq(0,100,10), limits=c(0,100)) +
+  coord_flip() +
+  theme_bw() +
+  theme(
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.position='None',
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank(),
+    # explicitly set the horizontal lines (or they will disappear too)
+    panel.grid.major.x = element_line( size=.05, color="black" )) +
+  facet_grid(vars(Statistic))
+
+full_plot 
+
+ggsave("figures/statistics_plot.png", full_plot, width = 168, height =98 , units = "mm")
+```
+
 
 # References

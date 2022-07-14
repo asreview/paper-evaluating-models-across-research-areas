@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite it as below."
+authors:
+  - family-names: Ferdinands
+    given-names: Gerbrich
+    orcid: https://orcid.org/0000-0002-4998-3293
+title: "Supplementary material on A plug & play application of active learning for screening prioritization in ASReview"
+version: 2.0
+date-released: 2022-07-14
